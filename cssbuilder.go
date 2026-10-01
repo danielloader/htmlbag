@@ -1753,7 +1753,7 @@ func (cb *CSSBuilder) outputGroupNodes(vl *node.VList, fc *flowCursor) (int, map
 					}
 					yLocal := fc.cur.top - topFloatH - flushedBodyH
 					yLimitLocal := fc.cur.bottom()
-					phc := flushedBodyH > 0 || topFloatH > 0
+					phc := flushedBodyH > 0 || topFloatH > 0 || fc.cur.occupied
 					if err := cb.outputTableRows(tableVL, buildHeadersFn, &yLocal, &yLimitLocal, &phc, fc); err != nil {
 						return -1, nil, err
 					}
@@ -1863,7 +1863,7 @@ func (cb *CSSBuilder) outputGroupNodes(vl *node.VList, fc *flowCursor) (int, map
 		// page has to hold the float's painted extent and a foothold of the
 		// block beside it, or both move to the next page.
 		if fh, isFloat := floatBoxHeight(cur); isFloat && next != nil {
-			if need := floatKeepWithNext(fh, siblingsFrom(next)); trialPageHeight(incoming, need) > contentArea && cb.pageBufHeight > 0 {
+			if need := floatKeepWithNext(fh, siblingsFrom(next)); trialPageHeight(incoming, need) > contentArea && (cb.pageBufHeight > 0 || fc.cur.occupied) {
 				if err := fc.breakTo(""); err != nil {
 					return -1, nil, err
 				}
@@ -1885,7 +1885,7 @@ func (cb *CSSBuilder) outputGroupNodes(vl *node.VList, fc *flowCursor) (int, map
 			for _, n := range rest {
 				chained[n] = true
 			}
-			if trialPageHeight(incoming, need) > contentArea && cb.pageBufHeight > 0 {
+			if trialPageHeight(incoming, need) > contentArea && (cb.pageBufHeight > 0 || fc.cur.occupied) {
 				if err := fc.breakTo(""); err != nil {
 					return -1, nil, err
 				}
@@ -1898,7 +1898,7 @@ func (cb *CSSBuilder) outputGroupNodes(vl *node.VList, fc *flowCursor) (int, map
 			}
 		}
 
-		if trialPageHeight(incoming, h) > contentArea && cb.pageBufHeight > 0 {
+		if trialPageHeight(incoming, h) > contentArea && (cb.pageBufHeight > 0 || fc.cur.occupied) {
 			if err := fc.breakTo(""); err != nil {
 				return -1, nil, err
 			}
@@ -2481,7 +2481,7 @@ func (cb *CSSBuilder) outputBlockSplit(blockVL *node.VList, fc *flowCursor) erro
 		// the block restarts on a fresh page with full available space. Only
 		// applies when there's something already on the page — on an empty
 		// page even a single line has to land here.
-		if isFirst && cb.pageBufHeight > 0 && countHL(batch) < fl.orphans && i < len(children) {
+		if isFirst && (cb.pageBufHeight > 0 || fc.cur.occupied) && countHL(batch) < fl.orphans && i < len(children) {
 			if err := fc.breakTo(""); err != nil {
 				return err
 			}

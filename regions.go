@@ -28,6 +28,10 @@ type Regions interface {
 type Region struct {
 	// Width and Height are the size of the rectangle.
 	Width, Height bag.ScaledPoint
+	// Occupied is set for a region below content the caller placed itself.
+	// A block that does not fit moves on as on a page that holds something,
+	// where an empty region would take it anyway.
+	Occupied bool
 	// MarginBefore is the margin still open above the region, such as the
 	// MarginAfter of a flow this one continues. It collapses with the first
 	// block's margin-top in the first region and in a region after a forced
@@ -177,6 +181,8 @@ type region struct {
 	pageNum int
 	// marginBefore is Region.MarginBefore.
 	marginBefore bag.ScaledPoint
+	// occupied is Region.Occupied.
+	occupied bool
 	// sink collects the boxes of a caller's region; nil for a page region,
 	// whose boxes are painted onto the page.
 	sink *regionSink
@@ -296,6 +302,7 @@ func (cr *callerRegions) next(brk string) (region, error) {
 		top:          rg.Top,
 		pageNum:      rg.PageNum,
 		marginBefore: rg.MarginBefore,
+		occupied:     rg.Occupied,
 		sink:         &regionSink{},
 	}
 	cr.started = true
