@@ -688,6 +688,15 @@ func StylesToStyles(ih *FormattingStyles, attributes StyleMap, df *frontend.Docu
 			case "none":
 				ih.TextDecorationLine = frontend.TextDecorationLineNone
 			}
+		case "text-box-trim":
+			// CSS Inline 3: only the end edge at a fragmentation break is
+			// supported (trimEnd); the start edge is not trimmed.
+			switch strings.TrimSpace(v) {
+			case "trim-end", "trim-both":
+				ih.textBoxTrimEnd = true
+			case "none", "trim-start":
+				ih.textBoxTrimEnd = false
+			}
 		case "text-indent":
 			ih.indent = ParseRelativeSize(v, curFontSize, ih.DefaultFontSize)
 			ih.indentRows = 1
@@ -961,8 +970,11 @@ type FormattingStyles struct {
 	// marginLeftAuto and marginRightAuto are margin-left and margin-right
 	// auto, which take up the room a block's width leaves (autoMargins).
 	marginLeftAuto, marginRightAuto bool
-	paddingInlineStart              bag.ScaledPoint
-	OlCounter                       int
+	// textBoxTrimEnd is text-box-trim: trim-end (or trim-both), which is not
+	// inherited.
+	textBoxTrimEnd     bool
+	paddingInlineStart bag.ScaledPoint
+	OlCounter          int
 	// LocalCounters holds CSS counter values defined in this element's
 	// scope. Children look up counter values by walking the StylesStack
 	// from the top down, so siblings share counters declared on the
@@ -1716,6 +1728,12 @@ func Output(cb *CSSBuilder, item *HTMLItem, ss StylesStack, df *frontend.Documen
 	styles := ss.PushStyles()
 	if err := StylesToStyles(styles, item.Styles, df, ss.CurrentStyle().Fontsize); err != nil {
 		return nil, err
+	}
+	if styles.textBoxTrimEnd {
+		if cb.trimEnd == nil {
+			cb.trimEnd = map[*frontend.Text]bool{}
+		}
+		cb.trimEnd[newte] = true
 	}
 	if styles.marginLeftAuto || styles.marginRightAuto {
 		if cb.autoMargins == nil {

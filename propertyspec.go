@@ -69,6 +69,7 @@ var Properties = []PropertySpec{
 	{Name: "font-variation-settings", Values: "Comma separated pairs of an axis tag and a number, for variable fonts", Example: `font-variation-settings: "wght" 650;`, Group: GroupText},
 	{Name: "color", Values: "Color value or a defined color name", Example: "color: #333;", Group: GroupText},
 	{Name: "text-align", Values: "`left`, `right`, `center`, `justify`, `start`, `end`", Example: "text-align: justify;", Group: GroupText},
+	{Name: "text-box-trim", Values: "`none`, `trim-end`, `trim-both` (as `trim-end`), `trim-start` (no effect)", Example: "text-box-trim: trim-end;", Note: "Not inherited. At a page or region break the block's line before the break fits when its text fits: the leading below the text (`text-box-edge: text`) may reach past the break. The start edge is not trimmed", Group: GroupText},
 	{Name: "text-indent", Values: "Length, indents the first line", Example: "text-indent: 1em;", Group: GroupText},
 	{Name: "text-decoration", Values: "Shorthand for line, style and color", Example: "text-decoration: underline dotted red;", Group: GroupText},
 	{Name: "text-decoration-line", Values: "`none`, `underline`, `overline`, `line-through`", Example: "text-decoration-line: underline;", Group: GroupText},

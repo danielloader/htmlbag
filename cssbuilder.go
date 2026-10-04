@@ -237,6 +237,9 @@ type CSSBuilder struct {
 	sourceNodes map[*frontend.Text]*html.Node
 	// autoMargins holds the Texts of blocks with an auto side margin.
 	autoMargins map[*frontend.Text]autoMargin
+	// trimEnd holds the Texts of blocks with text-box-trim: trim-end, whose
+	// lines record the leading below their text (stampTrimEnd).
+	trimEnd map[*frontend.Text]bool
 	// pageInserts accumulates inserts (per class) whose marks have been
 	// placed on the current page. Flushed by flushInserts, which is called
 	// automatically from cb.NewPage() before shipout, and must also be
@@ -1817,7 +1820,7 @@ func (cb *CSSBuilder) outputGroupNodes(vl *node.VList, fc *flowCursor) (int, map
 			}
 		}
 
-		if trialPageHeight(incoming, h) > contentArea && fc.holdsContent(cb) {
+		if trialPageHeight(incoming, h-trimEndOf(cur)) > contentArea && fc.holdsContent(cb) {
 			if err := fc.moveOn(cb, cur); err != nil {
 				return -1, nil, err
 			}
@@ -1971,6 +1974,11 @@ func (cb *CSSBuilder) outputBlockSplit(blockVL *node.VList, fc *flowCursor) erro
 		lt, hasLT := splitTe.Settings[settingLangTag]
 		delete(splitTe.Settings, settingLangTag)
 		tailVL, err := cb.frontend.FormatParagraphTail(splitTe, steps, newTeWidth)
+		if err == nil && cb.trimEnd[splitTe] {
+			stampTrimEnd(tailVL)
+		} else if _, ok := splitTe.Settings[frontend.SettingLineModel]; ok && err == nil {
+			clearTrimEnd(tailVL)
+		}
 		if hasPBI {
 			splitTe.Settings[settingPageBreakInside] = pbi
 		}
@@ -2171,7 +2179,13 @@ func (cb *CSSBuilder) outputBlockSplit(blockVL *node.VList, fc *flowCursor) erro
 		bottomOverhead := hv.PaddingBottom + hv.BorderBottomWidth
 		remaining := childrenHeight(children[i:])
 
-		if topOverhead+remaining+bottomOverhead <= avail && !forcedInside(children[i:], fc.forcedKeyword) {
+		// The block's last line may reach past the region by the leading
+		// below its text, when nothing of the block follows it.
+		var lastTrim bag.ScaledPoint
+		if bottomOverhead == 0 && i < len(children) {
+			lastTrim = trimEndOf(children[len(children)-1])
+		}
+		if topOverhead+remaining+bottomOverhead-lastTrim <= avail && !forcedInside(children[i:], fc.forcedKeyword) {
 			kind := fragBottom
 			if isFirst {
 				kind = fragOnly
@@ -2364,7 +2378,7 @@ func (cb *CSSBuilder) fitChildren(children []node.Node, i int, room bag.ScaledPo
 		if fh, isFloat := floatBoxHeight(children[i]); isFloat {
 			ch = floatKeepWithNext(fh, children[i+1:])
 		}
-		if batchH+ch > room {
+		if batchH+ch-trimEndOf(children[i]) > room {
 			if p := cb.planSplit(children[i], room-batchH, forced); p != nil {
 				return batch, i, false, p, p.brk
 			}

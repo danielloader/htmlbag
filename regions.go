@@ -927,3 +927,86 @@ func breakKeyword(v any) string {
 	s, _ := v.(string)
 	return s
 }
+
+// LineTrimEnd is the attribute on the lines of a block with text-box-trim:
+// trim-end that holds the leading below the line's text edge
+// (text-box-edge: text), a bag.ScaledPoint. At a fragmentation break the
+// line before the break fits when its text fits, so that only this leading
+// reaches past the region (CSS Inline 3 text-box-trim). A registered line
+// model may set it in LineBox by its own rule; otherwise htmlbag sets it to
+// the line's depth less the deepest content descent of its glyphs' fonts.
+const LineTrimEnd = "_trimEnd"
+
+// stampTrimEnd records the leading below the text edge on every line of vl
+// that has none from its line model.
+func stampTrimEnd(vl *node.VList) {
+	if vl == nil {
+		return
+	}
+	for n := vl.List; n != nil; n = n.Next() {
+		hl, ok := n.(*node.HList)
+		if !ok {
+			continue
+		}
+		if _, ok := hl.Attributes[LineTrimEnd]; ok {
+			continue
+		}
+		var text bag.ScaledPoint
+		found := false
+		for g := hl.List; g != nil; g = g.Next() {
+			if gl, ok := g.(*node.Glyph); ok && gl.Font != nil {
+				text = max(text, gl.Font.ContentDescent-gl.YOffset)
+				found = true
+			}
+		}
+		if trim := hl.Depth - text; found && trim > 0 {
+			hl.SetAttribute(LineTrimEnd, trim)
+		}
+	}
+}
+
+// clearTrimEnd removes what a line model recorded as LineTrimEnd on the lines
+// of vl, a block without text-box-trim: trim-end.
+func clearTrimEnd(vl *node.VList) {
+	if vl == nil {
+		return
+	}
+	for n := vl.List; n != nil; n = n.Next() {
+		if hl, ok := n.(*node.HList); ok && hl.Attributes != nil {
+			delete(hl.Attributes, LineTrimEnd)
+		}
+	}
+}
+
+// trimEndOf is how far n may reach past a region at a break after it: the
+// trimmed leading of the line it ends with, 0 when it ends with anything else.
+func trimEndOf(n node.Node) bag.ScaledPoint {
+	for depth := 0; depth <= 12 && n != nil; depth++ {
+		switch t := n.(type) {
+		case *node.HList:
+			trim, _ := t.Attributes[LineTrimEnd].(bag.ScaledPoint)
+			return trim
+		case *node.VList:
+			last := node.Tail(t.List)
+			for last != nil {
+				if g, ok := last.(*node.Glue); ok && g.Width == 0 {
+					last = last.Prev()
+					continue
+				}
+				if k, ok := last.(*node.Kern); ok && k.Kern == 0 {
+					last = last.Prev()
+					continue
+				}
+				if _, ok := last.(*node.StartStop); ok {
+					last = last.Prev()
+					continue
+				}
+				break
+			}
+			n = last
+		default:
+			return 0
+		}
+	}
+	return 0
+}
